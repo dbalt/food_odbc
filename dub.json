@@ -1,0 +1,13 @@
+{
+	"name": "dodibece",
+	"authors": [
+		"den"
+	],
+	"description": "A minimal D application.",
+	"copyright": "Copyright © 2018, den",
+	"license": "proprietary",
+	"dependencies" : {
+		"vibe-d": "~>0.8.5-beta.2"
+	}
+	
+}
