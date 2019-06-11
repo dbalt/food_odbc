@@ -287,6 +287,10 @@ Connection connect(string connectionString, bool async = false) {
 	return new Connection(connectionString, async);
 }
 
+Connection connectAsync(string connectionString){
+	return connect(connectionString, true);
+}
+
 
 void write_pi(ParameterInfo pi, string prefix = ""){
 	writeln(prefix, "tp: ", pi.type, "sz: ", pi.size,"digs: ", pi.decimalDigits);
