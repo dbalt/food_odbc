@@ -74,7 +74,7 @@ ErrInfo[] odbc_get_diag_rec(short handleType, SQLHANDLE handle)
         ErrInfo err;
         err.nativeError = nativeError;
         err.sqlState = cast(string) sqlStateBuffer[0 .. $].idup;
-        err.msg = cast(string) messageBuffer[0 .. messageLength - 1];
+        err.msg = cast(string) messageBuffer[0 .. messageLength - 1].idup;
         errors ~= err;
         index ++;
     }    
@@ -181,138 +181,18 @@ auto odbc_sql_prepare(SQLHSTMT stmt, string query) {
 	return rc;
 }
 
-/* =======================================================================
-    SQLExecDirect
-======================================================================== */
+
 auto odbc_sql_exec_direct(SQLHSTMT stmt, string query){
     auto q_ptr = cast(ubyte*) query.ptr;
     auto q_len = cast(SQLINTEGER) query.length;
     return _fx_stmt!SQLExecDirect(stmt, q_ptr, q_len);            
 }
 
-//auto _odbc_sql_exec_direct_async(SQLHSTMT stmt, string query){
-//    import vibe.core.core: yield;
-//    odbc_sql_async_enable(stmt);
-//    while(_odbc_sql_exec_direct(stmt, query) == SQL_STILL_EXECUTING){
-//        yield();
-//    }
-//}
-//
-///* run direct execution in separate thread */
-//auto _odbc_sql_exec_direct_worker_thread(shared(SQLHSTMT) stmt, string query) {
-//    import std.concurrency;
-//    auto parentTid = receiveOnly!Tid();
-//    try{
-//        _odbc_sql_exec_direct(cast(SQLHSTMT) stmt, query);
-//        parentTid.send(thisTid, true);
-//    }
-//    catch(DodbcException e){
-//        parentTid.send(thisTid, cast(shared) e.errors);
-//    }    
-//}
-//
-//auto _odbc_sql_exec_direct_threaded(SQLHSTMT stmt, string query){
-//    import vibe.core.core : yield; 
-//    import std.concurrency;
-//    auto workerTid = spawn(&_odbc_sql_exec_direct_worker_thread, cast(shared) stmt, query);
-//    workerTid.send(thisTid);
-//    bool exitFlag = false;
-//    while(!exitFlag){
-//        yield();
-//        receiveTimeout(
-//            100.msecs, 
-//            (Tid tid, bool done) { 
-//                if(tid == workerTid) exitFlag = done;                        
-//            },
-//            (Tid tid, shared(ErrInfo[]) errs) { 
-//                if(tid == workerTid) (cast(ErrInfo[])errs).throw_exc();
-//            }
-//        );                
-//    }
-//}
-//
-///* interface */
-//void odbc_sql_exec_direct(SQLHSTMT stmt, string query, bool async = false, bool sep_thread = false) {
-//    if(!async){
-//        // not async mode -> just execute
-//        _odbc_sql_exec_direct(stmt, query);
-//    }
-//    else {                        
-//        if(sep_thread) {
-//            _odbc_sql_exec_direct_threaded(stmt, query);
-//        }
-//        else{
-//            _odbc_sql_exec_direct_async(stmt, query);
-//        }
-//    }
-//}
 
-
-
-/* =======================================================================
-    SQLExecute
-======================================================================== */
 auto odbc_sql_exec(SQLHSTMT stmt){
     return _fx_stmt!SQLExecute(stmt);        
 }
 
-//void _odbc_sql_exec_async(SQLHSTMT stmt){
-//    import vibe.core.core : yield; 
-//    odbc_sql_async_enable(stmt);
-//    while(_odbc_sql_exec(stmt).still_exec){
-//        yield();
-//    }
-//}
-//
-//void _odbc_sql_exec_worker_thread(shared(SQLHSTMT) stmt) {
-//    import std.concurrency;
-//    auto parentTid = receiveOnly!Tid();
-//    try{
-//        _odbc_sql_exec(cast(SQLHSTMT) stmt);
-//        parentTid.send(thisTid, true);
-//    }
-//    catch(DodbcException e){
-//        parentTid.send(thisTid, cast(shared) e.errors);
-//    }    
-//}
-//
-//void _odbc_sql_exec_threaded(SQLHSTMT stmt){
-//    import vibe.core.core : yield; 
-//    import std.concurrency;
-//    auto workerTid = spawn(&_odbc_sql_exec_worker_thread, cast(shared) stmt);
-//    workerTid.send(thisTid);
-//    bool exitFlag = false;
-//    while(!exitFlag){
-//        yield();
-//        receiveTimeout(
-//            100.msecs, 
-//            (Tid tid, bool done) { 
-//                if(tid == workerTid) exitFlag = done;
-//                
-//            },
-//            (Tid tid, shared(ErrInfo[]) errs) { 
-//                if(tid == workerTid) (cast(ErrInfo[])errs).throw_exc();
-//            }
-//        );                
-//    }
-//}
-//
-//void odbc_sql_exec(SQLHSTMT stmt, bool async = false, bool sep_thread = false) {
-//    if(!async){
-//        _odbc_sql_exec(stmt);
-//    }
-//    else{                
-//        
-//        if(sep_thread) {            
-//           _odbc_sql_exec_threaded(stmt);
-//        }
-//        else{            
-//            _odbc_sql_exec_async(stmt);
-//        }
-//    }
-//}
-
-/*  ======================================================= */
 
 
 auto odbc_sql_reset_params(SQLHSTMT stmt){
