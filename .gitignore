@@ -43,3 +43,6 @@ packages/**
 *.resharper
 *.ncrunch*
 *.ndproj
+*.sln
+*.dll
+*.code-workspace
