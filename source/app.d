@@ -5,9 +5,7 @@ import std.variant;
 import std.datetime;
 
 import foo.odbc;
-// import core.thread;
-// import vibe.vibe;
-// import vibe.core.core;
+
 
 
 void example() {
@@ -58,7 +56,7 @@ void main()
 	try {
 		example();
 	}
-	catch(DodbcException exc){
-		exc.writeToCons();
+	catch(FoodOdbcException exc){
+		writeln(exc);
 	}
 }

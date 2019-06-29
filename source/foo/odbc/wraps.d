@@ -52,7 +52,11 @@ ErrInfo[] odbc_get_diag_rec(short handleType, SQLHANDLE handle)
 {
     SQLLEN recordsCount;
     short len_ind;
-    SQLGetDiagField(handleType, handle, cast(short) 0, cast(short) SQL_DIAG_NUMBER, cast(void*) &recordsCount, cast(short) 0,  &len_ind);
+    SQLGetDiagField(
+        handleType, handle, cast(short) 0, 
+        cast(short) SQL_DIAG_NUMBER, cast(void*) &recordsCount, cast(short) 0,  
+        &len_ind
+        );
 
     SQLCHAR[6] sqlStateBuffer;
     SQLCHAR[SQL_MAX_MESSAGE_LENGTH] messageBuffer;
@@ -429,7 +433,7 @@ auto odbc_sql_bind_parameter(T)(SQLHSTMT stmt, ushort position, T value) {
         odbc_sql_bind_parameter!int(stmt, position, value ? 1 : 0);
     }
     else {
-        throw new DodbcException("cant bind this type");
+        throw new FoodOdbcException("cant bind this type");
     }
 
     auto data_ptr = data.ptr;

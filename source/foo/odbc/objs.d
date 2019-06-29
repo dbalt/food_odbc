@@ -10,9 +10,9 @@ import std.parallelism;
 
 //import core.thread;
 
-// import etc.c.odbc.sql;
+import etc.c.odbc.sql;
 // import etc.c.odbc.sqlext;
-import core.sys.windows.sql;
+//import core.sys.windows.sql;
 
 import foo.odbc.wraps;
 import foo.odbc.errs;
@@ -212,7 +212,7 @@ class Record {
 		int _getColumnIndex(string columnName){
 			for(int idx = 0;idx<_columns.length;idx++)
 				if(_columns[idx].name == columnName) return idx + 1;		
-			throw new DodbcException("There is no such column : " ~ columnName);
+			throw new FoodOdbcException("There is no such column : " ~ columnName);
 		}
 	}
 
