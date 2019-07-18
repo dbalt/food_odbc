@@ -4,10 +4,15 @@ import std.stdio;
 import std.string;
 import std.exception;
 import std.traits;
+// import core.sys.windows.sql;
+// import core.sys.windows.sqlext;
+// import core.sys.windows.sqltypes;
 
-import core.sys.windows.sql;
-import core.sys.windows.sqlext;
-import core.sys.windows.sqltypes;
+import etc.c.odbc.sql;
+import etc.c.odbc.sqlext;
+import etc.c.odbc.sqltypes;
+// import etc.c.odbc.sqlucode;
+
 
 import std.datetime;
 
@@ -50,7 +55,7 @@ bool still_exec(SQLRETURN rc){
 /*  Diagnostic records from ODBC driver  */
 ErrInfo[] odbc_get_diag_rec(short handleType, SQLHANDLE handle)
 {
-    SQLLEN recordsCount;
+    SQLINTEGER recordsCount;
     short len_ind;
     SQLGetDiagField(
         handleType, handle, cast(short) 0, 
@@ -65,20 +70,36 @@ ErrInfo[] odbc_get_diag_rec(short handleType, SQLHANDLE handle)
 
     ErrInfo[] errors;
 
-    short index = 1;
-    while(index <= recordsCount){
-        auto rc = SQLGetDiagRec(
-            handleType, handle, index, 
-            cast(ubyte*) sqlStateBuffer.ptr, &nativeError, cast(ubyte*)messageBuffer.ptr, cast(short) messageBuffer.length,
-            &messageLength
-        );
+    auto mb_ptr = cast(char*)messageBuffer.ptr;
+    auto mb_len = cast(short) messageBuffer.length;  
 
-        if(rc == SQL_NO_DATA) break;
+    short index = 1;
+    bool exitFlag = false;
+    while(index <= recordsCount){
+        string msg;
+        bool haveReadAll = false;
+        while (!haveReadAll) {
+            auto rc = SQLGetDiagRec(
+                handleType, handle, index, 
+                // cast(ubyte*) sqlStateBuffer.ptr, &nativeError, cast(ubyte*)messageBuffer.ptr, cast(short) messageBuffer.length, // core.sys
+                cast(char*) sqlStateBuffer.ptr, &nativeError, mb_ptr, mb_len, // etc.c
+                &messageLength
+            );
+            if (rc == SQL_NO_DATA) {
+                exitFlag = true;
+                break;
+            }
+            if (messageLength <= mb_len) haveReadAll = true;
+            msg ~= cast(string) messageBuffer[0 .. messageLength - 1]; 
+        }
+
+        if (exitFlag) break;
 
         ErrInfo err;
         err.nativeError = nativeError;
         err.sqlState = cast(string) sqlStateBuffer[0 .. $].idup;
-        err.msg = cast(string) messageBuffer[0 .. messageLength - 1].idup;
+        // err.msg = cast(string) messageBuffer[0 .. messageLength - 1].idup;
+        err.msg = msg.idup;
         errors ~= err;
         index ++;
     }    
@@ -122,7 +143,8 @@ void odbc_init_dbc(SQLHENV env, SQLHDBC* dbcPtr, string connectionString){
         errs.throw_exc();
     }
 
-    rc = SQLDriverConnect(*dbcPtr, null, cast(ubyte*)connectionString.ptr, SQL_NTS, null, 0, null, SQL_DRIVER_NOPROMPT);
+    // rc = SQLDriverConnect(*dbcPtr, null, cast(ubyte*)connectionString.ptr, SQL_NTS, null, 0, null, SQL_DRIVER_NOPROMPT); //core.sys
+    rc = SQLDriverConnect(*dbcPtr, null, cast(char*)connectionString.ptr, SQL_NTS, null, 0, null, SQL_DRIVER_NOPROMPT); // etc.c
     if(!rc.ok){
         auto errs = odbc_get_diag_rec(SQL_HANDLE_DBC, *dbcPtr);
         errs.throw_exc();
@@ -179,7 +201,8 @@ auto _fx_stmt(alias fn)(Parameters!fn params) {
 
 
 auto odbc_sql_prepare(SQLHSTMT stmt, string query) {
-    auto q_ptr = cast(ubyte*) query.ptr;
+    // auto q_ptr = cast(ubyte*) query.ptr; // win
+    auto q_ptr = cast(char*) query.ptr; // etc.c
     auto q_len = cast(SQLINTEGER) query.length;
     auto rc = _fx_stmt!SQLPrepare(stmt, q_ptr, q_len);
 	return rc;
@@ -187,7 +210,8 @@ auto odbc_sql_prepare(SQLHSTMT stmt, string query) {
 
 
 auto odbc_sql_exec_direct(SQLHSTMT stmt, string query){
-    auto q_ptr = cast(ubyte*) query.ptr;
+    // auto q_ptr = cast(ubyte*) query.ptr; // win
+    auto q_ptr = cast(char*) query.ptr; // etc.c
     auto q_len = cast(SQLINTEGER) query.length;
     return _fx_stmt!SQLExecDirect(stmt, q_ptr, q_len);            
 }
@@ -207,7 +231,7 @@ auto odbc_sql_reset_params(SQLHSTMT stmt){
 T columnValue(T)(SQLHSTMT stmt, int col){
     scope(failure) return T.init; 
 
-    SQLLEN len; 
+    SQLINTEGER len; 
     // ==========================================
     static if(is(string == T)) {
         string res;
@@ -217,16 +241,10 @@ T columnValue(T)(SQLHSTMT stmt, int col){
         bool haveReadAll = false;
         while(!haveReadAll){
             _fx_stmt!SQLGetData(stmt, cast(ushort)col, SQL_CHAR, buf.ptr, SIZE, &len);          
-
-            if(len == SQL_NULL_DATA)
-                return string.init;
-
-            if(len <= SIZE)
-                haveReadAll = true;
-
+            if (len == SQL_NULL_DATA) return string.init;
+            if (len <= SIZE) haveReadAll = true;
             res ~= cast(string) buf[0 .. len > SIZE ? SIZE : len].idup;
         }
-                                
         return res;
     }
     // ==========================================
@@ -248,7 +266,7 @@ T columnValue(T)(SQLHSTMT stmt, int col){
         else version(X86_64){
             long res;		
         }
-
+        
         _fx_stmt!SQLGetData(stmt, cast(ushort)col, SQL_INTEGER, &res, int.sizeof, &len);
 
         if(len == SQL_NULL_DATA)
@@ -259,7 +277,7 @@ T columnValue(T)(SQLHSTMT stmt, int col){
         }
         else version(X86_64) {
             return cast(int) res;
-        }			
+        }		       
     }
     // ==========================================
     else static if(is(Date == T)) {
@@ -315,17 +333,21 @@ ColumnInfo[] getColumnsInfo(SQLHSTMT stmt){
     
     ColumnInfo[] res;
 
-    enum SIZE = 255;
+    enum SIZE = cast(short) 1024;  // etc.c
+    // enum SIZE = 1024;   // win
+
     SQLCHAR[SIZE] buf;
 
     short len;
     short type;
-    uint size;
+
+    // uint size; // win
+    ushort size; // etc.c
+
     short decs;
     short nullable;
 
     for(int i=0;i<count;i++){
-
         rc = SQLDescribeCol(stmt, cast(ushort)(i + 1), buf.ptr, SIZE, &len, &type, &size, &decs, &nullable);    
         if(!rc.ok){
             auto errs = odbc_get_diag_rec(SQL_HANDLE_STMT, stmt);
@@ -365,7 +387,7 @@ ParameterInfo odbc_sql_describe_parameter(SQLHSTMT stmt, ushort position){
     ======================================= */
 
     SQLSMALLINT type;
-    SQLULEN size;
+    SQLUINTEGER size;
     SQLSMALLINT decimalDigits;
 
     auto rc = SQLDescribeParam(
@@ -478,5 +500,6 @@ bool odbc_sql_can_async(SQLHDBC dbc) {
         errs.throw_exc();
     }
 
-    return res == core.sys.windows.sqlext.SQL_AM_CONNECTION || res == core.sys.windows.sqlext.SQL_AM_STATEMENT;
+    return res == etc.c.odbc.sql.SQL_AM_CONNECTION || res == etc.c.odbc.sql.SQL_AM_STATEMENT;  // etc.c
+    // return res == core.sys.windows.sql.SQL_AM_CONNECTION || res == core.sys.windows.sql.SQL_AM_STATEMENT; // win
 }

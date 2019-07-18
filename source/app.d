@@ -10,6 +10,7 @@ import foo.odbc;
 
 void example() {
 	auto connString = "dsn=PGX112";
+	// auto connString = "dsn=SQLX;uid=foo;pwd=123";
 
 	auto cn = connect(connString, false);
 
@@ -54,9 +55,24 @@ void example() {
 void main()
 {
 	try {
+		// throw new FoodOdbcException("fuck");
 		example();
 	}
 	catch(FoodOdbcException exc){
-		writeln(exc);
+		// writeln("###  ", exc, "  ###");
+		writeln("1st # ", exc, " # 1st");
+	}
+	catch(Exception exc){
+		writeln("2nd # ", exc, " # 2nd");
+	}
+	catch(Throwable exc){
+		writeln("3rd # ", exc, " # 3rd");
+	}
+	writeln("fin");
+
+	int x = 0;
+	while(x<10){
+		writeln("shit");
+		x++;
 	}
 }

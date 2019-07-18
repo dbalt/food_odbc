@@ -15,19 +15,21 @@ class FoodOdbcException : Exception {
         ErrInfo err;
         err.nativeError = 1000;
         err.sqlState = "";
-        err.msg = msg;
+        err.msg = msg.idup;
         errors ~= err;
     }
 
 	this(ErrInfo[] errs, string file = __FILE__, size_t line = __LINE__) {
         super("", file, line);
-        errors = errs;
+        // errors = errs;
     }	
 
-    override string toString(){
-        enum sep = "\n";
-        auto err_msgs = errors.map!(x => x.toString());
-        return err_msgs.join(sep);
+    string str(){
+        // enum sep = "; ";
+        // auto err_msgs = errors.map!(x => x.toString());
+        // auto res = err_msgs.join(sep);
+        // return res;      
+        return "yo";  
     }
 }
 

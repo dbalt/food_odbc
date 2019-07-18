@@ -29,11 +29,13 @@ class Connection {
 		_async = async;
 		_connString = connString;	
 		
-		odbc_init_env(&_env);
 		scope (failure) odbc_free_env(_env);
+		odbc_init_env(&_env);
+		writeln("env initialized");
 
-		odbc_init_dbc(_env, &_dbc, _connString);
 		scope (failure) odbc_free_dbc(_dbc);		
+		odbc_init_dbc(_env, &_dbc, _connString);
+		writeln("dbc initialized");
 	}
 
 	@property bool supportAsync(){
